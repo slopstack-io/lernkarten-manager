@@ -1,20 +1,20 @@
 {
   "name": "Lernkarten Manager",
   "short_name": "Lernkarten",
-  "description": "Erstelle und lerne mit Lernkarten — Flashcards zum Durchblättern",
+  "description": "Erstelle und lerne mit Lernkarten — Flashcards App",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F3E5F5",
-  "theme_color": "#4A148C",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
   "icons": [
     {
-      "src": "flashcard-icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "flashcard-icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

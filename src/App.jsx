@@ -1,408 +1,256 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+
+// Storage
+function load(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback } catch { return fallback } }
+function save(key, val) { localStorage.setItem(key, JSON.stringify(val)) }
 
 const SAMPLE_CARDS = [
-  { id: '1', front: 'Was ist React?', back: 'Eine JavaScript-Bibliothek für Benutzeroberflächen', category: 'Technik', learned: false },
-  { id: '2', front: 'Was ist ein Hook?', back: 'Eine Funktion, die Zustand und Lifecycle in Funktionskomponenten nutzbar macht', category: 'Technik', learned: false },
-  { id: '3', front: 'Hauptstadt von Frankreich?', back: 'Paris', category: 'Geografie', learned: false },
-  { id: '4', front: 'Was ist Photosynthese?', back: 'Der Prozess, bei dem Pflanzen Lichtenergie in chemische Energie umwandeln', category: 'Biologie', learned: false },
-  { id: '5', front: 'Was ist der ggT von 12 und 18?', back: '6', category: 'Mathe', learned: false },
-  { id: '6', front: 'Wer schrieb Faust?', back: 'Johann Wolfgang von Goethe', category: 'Literatur', learned: false },
+  { id: '1', front: 'Was ist React?', back: 'Eine JavaScript-Bibliothek zum Erstellen von Benutzeroberflächen', category: 'Webentwicklung', learned: false },
+  { id: '2', front: 'Was ist ein Service Worker?', back: 'Ein Skript, das im Hintergrund läuft und Offline-Funktionen ermöglicht', category: 'Webentwicklung', learned: false },
+  { id: '3', front: 'Wie lautet die Hauptstadt von Frankreich?', back: 'Paris', category: 'Geografie', learned: false },
+  { id: '4', front: 'Was ist Photosynthese?', back: 'Der Prozess, bei dem Pflanzen Sonnenlicht in Energie umwandeln', category: 'Biologie', learned: false },
+  { id: '5', front: '2^10 = ?', back: '1024', category: 'Mathe', learned: false },
 ]
 
-function load(key, fallback) {
-  try {
-    const v = localStorage.getItem(key)
-    return v ? JSON.parse(v) : fallback
-  } catch { return fallback }
-}
-
-function save(key, val) {
-  localStorage.setItem(key, JSON.stringify(val))
-}
-
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-}
-
 export default function App() {
-  // State
-  const [cards, setCards] = useState(() => load('lernkarten_cards', SAMPLE_CARDS))
-  const [view, setView] = useState('library') // library | study | create | categories
-  const [selectedCategory, setSelectedCategory] = useState('Alle')
+  const [cards, setCards] = useState(() => load('lk_cards', SAMPLE_CARDS))
+  const [view, setView] = useState('browse') // browse | create | study
+  const [filterCat, setFilterCat] = useState('Alle')
+  const [flipped, setFlipped] = useState({})
   const [studyIndex, setStudyIndex] = useState(0)
-  const [flipped, setFlipped] = useState(false)
+  const [studyFlipped, setStudyFlipped] = useState(false)
   const [newCard, setNewCard] = useState({ front: '', back: '', category: '' })
-  const [editingId, setEditingId] = useState(null)
-  const [toast, setToast] = useState(null)
 
-  // Persist
-  useEffect(() => save('lernkarten_cards', cards), [cards])
+  useEffect(() => save('lk_cards', cards), [cards])
 
-  // Derived
-  const categories = ['Alle', ...new Set(cards.map(c => c.category).filter(Boolean))]
-  const filteredCards = selectedCategory === 'Alle' ? cards : cards.filter(c => c.category === selectedCategory)
-  const unlearnedCards = filteredCards.filter(c => !c.learned)
-  const studyDeck = unlearnedCards.length > 0 ? unlearnedCards : filteredCards
-  const currentCard = studyDeck[studyIndex] || null
-  const learnedCount = cards.filter(c => c.learned).length
-  const progress = cards.length > 0 ? Math.round((learnedCount / cards.length) * 100) : 0
+  const categories = ['Alle', ...new Set(cards.map(c => c.category))]
+  const filtered = filterCat === 'Alle' ? cards : cards.filter(c => c.category === filterCat)
+  const unlearned = filtered.filter(c => !c.learned)
+  const learned = filtered.filter(c => c.learned)
 
-  // Toast helper
-  const showToast = useCallback((msg) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2000)
-  }, [])
-
-  // Card actions
   const addCard = useCallback(() => {
     if (!newCard.front.trim() || !newCard.back.trim()) return
-    const card = {
-      id: uid(),
+    setCards(prev => [...prev, {
+      id: Date.now().toString(),
       front: newCard.front.trim(),
       back: newCard.back.trim(),
       category: newCard.category.trim() || 'Allgemein',
       learned: false
-    }
-    setCards(prev => [...prev, card])
+    }])
     setNewCard({ front: '', back: '', category: '' })
-    showToast('Karte erstellt!')
-  }, [newCard, showToast])
-
-  const deleteCard = useCallback((id) => {
-    setCards(prev => prev.filter(c => c.id !== id))
-    showToast('Karte gelöscht')
-  }, [showToast])
+    setView('browse')
+  }, [newCard])
 
   const toggleLearned = useCallback((id) => {
     setCards(prev => prev.map(c => c.id === id ? { ...c, learned: !c.learned } : c))
   }, [])
 
-  const startEdit = useCallback((card) => {
-    setEditingId(card.id)
-    setNewCard({ front: card.front, back: card.back, category: card.category })
+  const deleteCard = useCallback((id) => {
+    setCards(prev => prev.filter(c => c.id !== id))
   }, [])
 
-  const saveEdit = useCallback(() => {
-    if (!newCard.front.trim() || !newCard.back.trim()) return
-    setCards(prev => prev.map(c =>
-      c.id === editingId
-        ? { ...c, front: newCard.front.trim(), back: newCard.back.trim(), category: newCard.category.trim() || 'Allgemein' }
-        : c
-    ))
-    setEditingId(null)
-    setNewCard({ front: '', back: '', category: '' })
-    showToast('Karte aktualisiert!')
-  }, [editingId, newCard, showToast])
-
-  const cancelEdit = useCallback(() => {
-    setEditingId(null)
-    setNewCard({ front: '', back: '', category: '' })
+  const toggleFlip = useCallback((id) => {
+    setFlipped(prev => ({ ...prev, [id]: !prev[id] }))
   }, [])
 
-  // Study navigation
+  // Study mode
+  const startStudy = useCallback(() => {
+    if (unlearned.length === 0) return
+    setStudyIndex(0)
+    setStudyFlipped(false)
+    setView('study')
+  }, [unlearned.length])
+
   const nextCard = useCallback(() => {
-    setFlipped(false)
-    setStudyIndex(prev => (prev + 1) % studyDeck.length)
-  }, [studyDeck.length])
-
-  const prevCard = useCallback(() => {
-    setFlipped(false)
-    setStudyIndex(prev => (prev - 1 + studyDeck.length) % studyDeck.length)
-  }, [studyDeck.length])
+    if (studyIndex < unlearned.length - 1) {
+      setStudyIndex(prev => prev + 1)
+      setStudyFlipped(false)
+    }
+  }, [studyIndex, unlearned.length])
 
   const markLearned = useCallback(() => {
-    if (currentCard) {
-      toggleLearned(currentCard.id)
-      showToast('Als gelernt markiert ✓')
-      if (studyIndex >= studyDeck.length - 1) {
-        setStudyIndex(0)
-        setFlipped(false)
+    if (unlearned[studyIndex]) {
+      toggleLearned(unlearned[studyIndex].id)
+      if (studyIndex < unlearned.length - 1) {
+        setStudyIndex(prev => prev + 1)
+        setStudyFlipped(false)
+      } else {
+        setView('browse')
       }
     }
-  }, [currentCard, studyIndex, studyDeck.length, toggleLearned, showToast])
-
-  const startStudy = useCallback(() => {
-    setStudyIndex(0)
-    setFlipped(false)
-    setView('study')
-  }, [])
-
-  // Swipe support
-  const touchStartRef = useRef(null)
-  const handleTouchStart = (e) => {
-    touchStartRef.current = e.touches[0].clientX
-  }
-  const handleTouchEnd = (e) => {
-    if (touchStartRef.current === null) return
-    const diff = e.changedTouches[0].clientX - touchStartRef.current
-    if (Math.abs(diff) > 60) {
-      if (diff > 0) prevCard()
-      else nextCard()
-    }
-    touchStartRef.current = null
-  }
+  }, [studyIndex, unlearned, toggleLearned])
 
   return (
     <div className="app">
-      {/* Header */}
-      <header className="header">
-        <h1>
-          <span className="header-icon">🃏</span>
-          {view === 'study' ? 'Lernen' : view === 'create' ? 'Erstellen' : 'Lernkarten'}
-        </h1>
+      <div className="header">
+        <h1>🃏 Lernkarten</h1>
         <div className="header-actions">
-          {view === 'library' && (
-            <button className="icon-btn" onClick={() => setView('create')} title="Neue Karte">
-              <span style={{ fontSize: '1.4rem' }}>+</span>
-            </button>
-          )}
-          {view !== 'library' && (
-            <button className="back-btn" onClick={() => setView('library')}>
-              ← Zurück
+          <button className="nav-btn" onClick={() => setView('create')}>+ Neu</button>
+          {view !== 'study' && (
+            <button className="nav-btn study-nav" onClick={startStudy} disabled={unlearned.length === 0}>
+              Lernen ({unlearned.length})
             </button>
           )}
         </div>
-      </header>
+      </div>
 
-      <main className="content">
-        {/* LIBRARY VIEW */}
-        {view === 'library' && (
-          <>
-            {/* Stats */}
-            <div className="stats-bar">
-              <div className="stat">
-                <span className="stat-num">{cards.length}</span>
-                <span className="stat-label">Karten</span>
-              </div>
-              <div className="stat">
-                <span className="stat-num">{learnedCount}</span>
-                <span className="stat-label">Gelernt</span>
-              </div>
-              <div className="stat">
-                <span className="stat-num">{progress}%</span>
-                <span className="stat-label">Fortschritt</span>
-              </div>
+      <div className="content">
+        {/* CREATE VIEW */}
+        {view === 'create' && (
+          <div className="create-view">
+            <h2>Neue Lernkarte erstellen</h2>
+            <div className="form-group">
+              <label>Kategorie</label>
+              <input
+                placeholder="z.B. Mathe, Biologie..."
+                value={newCard.category}
+                onChange={e => setNewCard(p => ({ ...p, category: e.target.value }))}
+              />
             </div>
-
-            {/* Progress Bar */}
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${progress}%` }} />
+            <div className="form-group">
+              <label>Vorderseite (Frage)</label>
+              <textarea
+                placeholder="Was möchtest du lernen?"
+                value={newCard.front}
+                onChange={e => setNewCard(p => ({ ...p, front: e.target.value }))}
+                rows={3}
+              />
             </div>
-
-            {/* Category Filter */}
-            <div className="category-filter">
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  className={`cat-chip ${selectedCategory === cat ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(cat)}
-                >
-                  {cat}
-                  {cat !== 'Alle' && (
-                    <span className="cat-count">
-                      {cards.filter(c => c.category === cat).length}
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div className="form-group">
+              <label>Rückseite (Antwort)</label>
+              <textarea
+                placeholder="Die Antwort..."
+                value={newCard.back}
+                onChange={e => setNewCard(p => ({ ...p, back: e.target.value }))}
+                rows={3}
+              />
             </div>
-
-            {/* Study Button */}
-            {filteredCards.length > 0 && (
-              <button className="study-start-btn" onClick={startStudy}>
-                <span className="study-icon">📖</span>
-                <div>
-                  <div className="study-title">Lernen starten</div>
-                  <div className="study-sub">
-                    {unlearnedCards.length} offene {unlearnedCards.length === 1 ? 'Karte' : 'Karten'}
-                    {unlearnedCards.length === 0 && ' — Wiederholung!'}
-                  </div>
-                </div>
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={() => setView('browse')}>Abbrechen</button>
+              <button className="btn-primary" onClick={addCard} disabled={!newCard.front.trim() || !newCard.back.trim()}>
+                Speichern
               </button>
-            )}
-
-            {/* Card List */}
-            <div className="card-list">
-              {filteredCards.map(card => (
-                <div key={card.id} className={`card-item ${card.learned ? 'learned' : ''}`}>
-                  <div className="card-item-content" onClick={() => startEdit(card)}>
-                    <div className="card-item-front">{card.front}</div>
-                    <div className="card-item-meta">
-                      <span className="card-item-cat">{card.category}</span>
-                      {card.learned && <span className="learned-badge">✓ Gelernt</span>}
-                    </div>
-                  </div>
-                  <button
-                    className="card-delete-btn"
-                    onClick={(e) => { e.stopPropagation(); deleteCard(card.id) }}
-                    title="Löschen"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              {filteredCards.length === 0 && (
-                <div className="empty-state">
-                  <div className="empty-emoji">📭</div>
-                  <p>Noch keine Karten{selectedCategory !== 'Alle' ? ` in "${selectedCategory}"` : ''}.</p>
-                  <button className="create-first-btn" onClick={() => setView('create')}>
-                    Erste Karte erstellen
-                  </button>
-                </div>
-              )}
             </div>
-          </>
+          </div>
         )}
 
         {/* STUDY VIEW */}
-        {view === 'study' && (
+        {view === 'study' && unlearned[studyIndex] && (
           <div className="study-view">
             <div className="study-progress">
-              <span>{studyIndex + 1} / {studyDeck.length}</span>
-              <div className="study-progress-bar">
-                <div
-                  className="study-progress-fill"
-                  style={{ width: `${((studyIndex + 1) / studyDeck.length) * 100}%` }}
-                />
+              {studyIndex + 1} / {unlearned.length}
+            </div>
+            <div className="study-card-wrapper">
+              <div className={`study-card ${studyFlipped ? 'flipped' : ''}`} onClick={() => setStudyFlipped(!studyFlipped)}>
+                <div className="study-card-face study-card-front">
+                  <div className="study-label">Frage</div>
+                  <div className="study-text">{unlearned[studyIndex].front}</div>
+                  <div className="study-hint">Tippen zum Umdrehen</div>
+                </div>
+                <div className="study-card-face study-card-back">
+                  <div className="study-label">Antwort</div>
+                  <div className="study-text">{unlearned[studyIndex].back}</div>
+                  <div className="study-category">{unlearned[studyIndex].category}</div>
+                </div>
+              </div>
+            </div>
+            <div className="study-actions">
+              {studyFlipped && (
+                <button className="btn-success" onClick={markLearned}>
+                  ✅ Gelernt
+                </button>
+              )}
+              {studyFlipped && studyIndex < unlearned.length - 1 && (
+                <button className="btn-secondary" onClick={nextCard}>Weiter →</button>
+              )}
+              <button className="btn-secondary" onClick={() => setView('browse')}>Beenden</button>
+            </div>
+          </div>
+        )}
+
+        {view === 'study' && unlearned.length === 0 && (
+          <div className="empty-state">
+            <div className="emoji">🎉</div>
+            <h2>Alle Karten gelernt!</h2>
+            <p>Erstelle neue Karten oder setze gelernte Karten zurück.</p>
+            <button className="btn-primary" onClick={() => setView('browse')}>Zurück</button>
+          </div>
+        )}
+
+        {/* BROWSE VIEW */}
+        {view === 'browse' && (
+          <>
+            {/* Category Filter */}
+            <div className="category-bar">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  className={`cat-btn ${filterCat === cat ? 'active' : ''}`}
+                  onClick={() => setFilterCat(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Stats */}
+            <div className="stats-bar">
+              <div className="stat">
+                <span className="stat-num">{filtered.length}</span>
+                <span className="stat-label">Gesamt</span>
+              </div>
+              <div className="stat stat-learned">
+                <span className="stat-num">{learned.length}</span>
+                <span className="stat-label">Gelernt</span>
+              </div>
+              <div className="stat stat-open">
+                <span className="stat-num">{unlearned.length}</span>
+                <span className="stat-label">Offen</span>
               </div>
             </div>
 
-            {currentCard ? (
-              <div
-                className={`flashcard-container ${flipped ? 'flipped' : ''}`}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-              >
-                <div className="flashcard" onClick={() => setFlipped(!flipped)}>
-                  <div className="flashcard-face flashcard-front">
-                    <div className="flashcard-label">Frage</div>
-                    <div className="flashcard-text">{currentCard.front}</div>
-                    <div className="flashcard-hint">Tippen zum Umdrehen</div>
-                  </div>
-                  <div className="flashcard-face flashcard-back">
-                    <div className="flashcard-label">Antwort</div>
-                    <div className="flashcard-text">{currentCard.back}</div>
-                    <div className="flashcard-hint">Tippen für Frage</div>
-                  </div>
-                </div>
+            {/* Card List */}
+            {filtered.length === 0 ? (
+              <div className="empty-state">
+                <div className="emoji">📝</div>
+                <h2>Noch keine Karten</h2>
+                <p>Erstelle deine erste Lernkarte!</p>
+                <button className="btn-primary" onClick={() => setView('create')}>+ Neue Karte</button>
               </div>
             ) : (
-              <div className="empty-state">
-                <div className="empty-emoji">🎉</div>
-                <h3>Alle Karten gelernt!</h3>
-                <p>Du hast alle Karten in dieser Kategorie gemeistert.</p>
-              </div>
-            )}
-
-            {currentCard && (
-              <div className="study-controls">
-                <button className="nav-btn" onClick={prevCard}>←</button>
-                <button
-                  className={`learn-btn ${currentCard.learned ? 'unlearn' : ''}`}
-                  onClick={markLearned}
-                >
-                  {currentCard.learned ? '↩ Nochmal lernen' : '✓ Gelernt!'}
-                </button>
-                <button className="nav-btn" onClick={nextCard}>→</button>
-              </div>
-            )}
-
-            {studyDeck.length > 0 && (
-              <div className="study-stats">
-                {studyDeck.filter(c => c.learned).length} von {studyDeck.length} gelernt
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* CREATE / EDIT VIEW */}
-        {view === 'create' && (
-          <div className="create-view">
-            <h2 className="section-title">
-              {editingId ? '✏️ Karte bearbeiten' : '✨ Neue Lernkarte'}
-            </h2>
-            <div className="create-form">
-              <div className="form-group">
-                <label>Vorderseite (Frage)</label>
-                <textarea
-                  placeholder="Was möchtest du lernen?"
-                  value={newCard.front}
-                  onChange={e => setNewCard(p => ({ ...p, front: e.target.value }))}
-                  rows={3}
-                  autoFocus
-                />
-              </div>
-              <div className="form-group">
-                <label>Rückseite (Antwort)</label>
-                <textarea
-                  placeholder="Die Antwort darauf..."
-                  value={newCard.back}
-                  onChange={e => setNewCard(p => ({ ...p, back: e.target.value }))}
-                  rows={3}
-                />
-              </div>
-              <div className="form-group">
-                <label>Kategorie</label>
-                <div className="category-input-row">
-                  <input
-                    placeholder="z.B. Mathe, Biologie..."
-                    value={newCard.category}
-                    onChange={e => setNewCard(p => ({ ...p, category: e.target.value }))}
-                  />
-                  <div className="quick-cats">
-                    {['Technik', 'Sprachen', 'Mathe', 'Biologie', 'Allgemein'].map(cat => (
+              <div className="card-list">
+                {filtered.map(card => (
+                  <div key={card.id} className={`card-item ${card.learned ? 'learned' : ''}`}>
+                    <div className="card-flip-area" onClick={() => toggleFlip(card.id)}>
+                      <div className="card-inner">
+                        {!flipped[card.id] ? (
+                          <div className="card-front">
+                            <div className="card-cat-badge">{card.category}</div>
+                            <div className="card-text">{card.front}</div>
+                          </div>
+                        ) : (
+                          <div className="card-back">
+                            <div className="card-text">{card.back}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="card-actions">
                       <button
-                        key={cat}
-                        className={`cat-chip-sm ${newCard.category === cat ? 'active' : ''}`}
-                        onClick={() => setNewCard(p => ({ ...p, category: cat }))}
+                        className={`learn-btn ${card.learned ? 'undo' : ''}`}
+                        onClick={() => toggleLearned(card.id)}
                       >
-                        {cat}
+                        {card.learned ? '↩ Zurücksetzen' : '✓ Gelernt'}
                       </button>
-                    ))}
+                      <button className="delete-btn" onClick={() => deleteCard(card.id)}>🗑</button>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="form-actions">
-                {editingId ? (
-                  <>
-                    <button className="cancel-btn" onClick={cancelEdit}>Abbrechen</button>
-                    <button className="save-btn" onClick={saveEdit}>Speichern</button>
-                  </>
-                ) : (
-                  <>
-                    <button className="save-btn" onClick={addCard} style={{ width: '100%' }}>
-                      ➕ Karte erstellen
-                    </button>
-                    {newCard.front && newCard.back && (
-                      <button
-                        className="save-another-btn"
-                        onClick={() => { addCard(); setView('create'); }}
-                      >
-                        Erstellen & weitere Karte
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Preview */}
-            {newCard.front && newCard.back && (
-              <div className="card-preview">
-                <div className="preview-label">Vorschau</div>
-                <div className="preview-card">
-                  <div className="preview-front"><strong>Q:</strong> {newCard.front}</div>
-                  <div className="preview-back"><strong>A:</strong> {newCard.back}</div>
-                  {newCard.category && <div className="preview-cat">{newCard.category}</div>}
-                </div>
+                ))}
               </div>
             )}
-          </div>
+          </>
         )}
-      </main>
-
-      {/* Toast */}
-      {toast && <div className="toast">{toast}</div>}
+      </div>
     </div>
   )
 }
