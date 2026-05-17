@@ -31,7 +31,7 @@ export default function App() {
   const addCard = useCallback(() => {
     if (!newCard.front.trim() || !newCard.back.trim()) return
     setCards(prev => [...prev, {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       front: newCard.front.trim(),
       back: newCard.back.trim(),
       category: newCard.category.trim() || 'Allgemein',

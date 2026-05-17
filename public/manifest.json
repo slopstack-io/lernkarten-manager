@@ -2,7 +2,7 @@
   "name": "Lernkarten Manager",
   "short_name": "Lernkarten",
   "description": "Erstelle und lerne mit Lernkarten — Flashcards App",
-  "start_url": "/",
+  "start_url": "/lernkarten/",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",
